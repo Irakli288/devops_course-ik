@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+logs/
+db.sqlite3
+# Сертификаты и ключи генерируются скриптом certs.sh и в репозиторий не попадают
+certs/*.pem
+certs/*.csr

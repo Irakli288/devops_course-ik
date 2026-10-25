@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en-us" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html {
+      line-height: 1.15;
+    }
+    body {
+      max-width: 960px;
+      color: #525252;
+      font-family: sans-serif;
+      margin: 0 auto;
+      font-size: x-large;
+    }
+    main {
+      text-align: center;
+    }
+  </style>
+  <script>
+    // removes form resubmit popup on F5
+    window.onload = function() {
+      history.replaceState("", "", "/");
+    }
+    // favicon
+    document.head.appendChild(Object.assign(document.createElement("link"), {rel: "icon", href: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎲</text></svg>"}));
+  </script>
+</head>
+<body>
+  <main>
+    <p>{{ icon_a }} {{ sign }} {{ icon_b }}</p>
+    <form method="POST">
+      {% csrf_token %}
+      <button type="submit">Roll it!</button>
+    </form>
+  </main>
+</body>
+</html>

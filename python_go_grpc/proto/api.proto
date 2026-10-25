@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+option go_package = "server/api";
+
+package api;
+
+message RollDieRequest {}
+
+message RollDieResponse {
+  int32 value = 1;
+}
+
+service DiceService {
+  rpc RollDie (RollDieRequest) returns (RollDieResponse) {}
+}
