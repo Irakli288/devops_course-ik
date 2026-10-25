@@ -30,3 +30,11 @@ def transfers(trip: Trip) -> list[tuple[str, str, float]]:
         if creditor[1] < 0.01:
             creditors.pop(0)
     return result
+
+
+def totals_by_category(trip: Trip) -> dict[str, float]:
+    """Сумма расходов поездки по каждой категории."""
+    result: dict[str, float] = {}
+    for expense in trip.expenses:
+        result[expense.category] = result.get(expense.category, 0.0) + expense.amount
+    return {category: round(value, 2) for category, value in result.items()}
