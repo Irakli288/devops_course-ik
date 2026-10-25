@@ -15,12 +15,13 @@
 devops_course-ik/
 ├── README.md            # описание проекта
 ├── .gitignore           # исключения для git
+├── .github/workflows/   # CI: Pylint и pytest (GitHub Actions)
 ├── requirements.txt     # зависимости Python
 ├── main.py              # точка входа (консольное приложение)
 ├── splitter/            # исходный код
 │   ├── __init__.py
 │   ├── models.py        # сущности: поездка, участник, расход
-│   └── settlement.py    # расчет балансов и переводов
+│   └── settlement.py    # расчет балансов, переводов и итогов по категориям
 ├── data/                # данные приложения (JSON)
 │   └── .gitkeep
 └── tests/               # автотесты pytest
