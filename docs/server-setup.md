@@ -133,6 +133,7 @@ sudo ufw allow 80/tcp comment 'HTTP'
 sudo ufw allow 443/tcp comment 'HTTPS'
 sudo ufw enable
 sudo ufw logging medium
+sudo systemctl enable --now ufw   # служба должна включаться при загрузке (на стенде была выключена)
 ```
 
 Не использовать `ufw allow ssh` — это порт 22 из `/etc/services`.
@@ -207,3 +208,43 @@ sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
 - Хост: копия сертификата для проверки — `scp devops:/etc/ssl/certs/devops.crt ~/devops.crt`;
   проверка — `curl --cacert ~/devops.crt -I https://devops.local`.
 - Снимок состояния: `04-nginx-https`.
+
+## 9. Контейнеризация
+
+- Docker Engine 29.9.3 и плагин Compose v5.7.0 установлены из официального репозитория
+  `https://download.docker.com/linux/ubuntu` по инструкции Docker (пакеты `docker-ce docker-ce-cli
+  containerd.io docker-buildx-plugin docker-compose-plugin`); пакет `docker.io` не используется.
+  Служба: `sudo systemctl enable --now docker`.
+- Стенд: выход в интернет только через прокси хоста `http://192.168.56.1:3128`, поэтому
+  `/etc/systemd/system/docker.service.d/http-proxy.conf` (HTTPS_PROXY для загрузки образов)
+  и `~/.docker/config.json` пользователя devops (`proxies.default.httpsProxy`, для `pip install` при сборке).
+  Каталоги `/var/lib/docker` и `/var/lib/containerd` вынесены в отдельные тома (overlayfs поверх overlayfs не работает).
+- Группа docker: только `devops` (у него есть sudo; членство в docker равносильно root).
+  `sudo usermod -aG docker devops`, затем новая SSH-сессия.
+- Проект: `~/app` (владелец devops), доставляется с хоста:
+  `rsync -avz --delete --exclude=.env app/ devops:app/`; запуск `cd ~/app && docker compose up -d --build`.
+- Секреты: `~/app/.env`, права 600, создаётся только на сервере из шаблона:
+
+```bash
+cd ~/app && cp .env.example .env && chmod 600 .env
+sed -i "s/^POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=$(openssl rand -hex 16)/" .env
+```
+
+- Порты: приложение `127.0.0.1:5000 -> 5000` (только для Nginx на этой машине); порт СУБД 5432 не публикуется,
+  приложение обращается к ней по имени `db` в сети проекта `app_backend`.
+- Именованный том: `app_db_data` (данные PostgreSQL 16, `/var/lib/postgresql/data`).
+  `docker compose down` том сохраняет, `docker compose down -v` удаляет данные.
+- Обратный прокси: в блок `listen 443 ssl` файла `/etc/nginx/sites-available/devops-site` добавлено
+
+```nginx
+location /app/ {
+    proxy_pass http://127.0.0.1:5000/;
+    proxy_set_header Host              $host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+  Проверка: `curl --cacert ~/devops.crt https://devops.local/app/`.
+- Снимок состояния: `05-docker-compose` (на стенде `docker commit` не включает тома Docker).
