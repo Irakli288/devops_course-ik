@@ -158,3 +158,52 @@ sudo ufw logging medium
 ```bash
 ~/scripts/audit.sh; echo $?    # 0
 ```
+
+## 8. Веб-сервер
+
+- Пакет: `nginx` из репозитория Ubuntu (`sudo apt install -y nginx`), версия 1.24.0.
+  На стенде перед запуском удалён `/usr/sbin/policy-rc.d` (запрет запуска служб в образе Docker),
+  а в `/etc/nginx/sites-available/default` закомментирована строка `listen [::]:80` (IPv6 отключён).
+- Стандартный ресурс отключён: `sudo rm /etc/nginx/sites-enabled/default` (файл в sites-available сохранён).
+- Конфигурация ресурса: `/etc/nginx/sites-available/devops-site`, ссылка в `/etc/nginx/sites-enabled/devops-site`:
+
+```nginx
+server {
+    listen 80;
+    server_name devops.local;
+    return 301 https://$host$request_uri;
+}
+server {
+    listen 443 ssl;
+    server_name devops.local;
+    ssl_certificate     /etc/ssl/certs/devops.crt;
+    ssl_certificate_key /etc/ssl/private/devops.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    root /var/www/devops-site;
+    index index.html;
+    location / {
+        try_files $uri $uri/ =404;
+    }
+    error_page 404 /404.html;
+    access_log /var/log/nginx/devops-site.access.log;
+    error_log /var/log/nginx/devops-site.error.log;
+}
+```
+
+Применение: `sudo nginx -t && sudo systemctl reload nginx` (не restart).
+
+- Каталог ресурса: `/var/www/devops-site`, владелец `devops:devops`, каталоги 755, файлы 644
+  (`sudo mkdir -p /var/www/devops-site && sudo chown -R devops:devops /var/www/devops-site`).
+  Содержимое доставляется из каталога `site/` репозитория сценарием `scripts/deploy.sh`.
+- Сертификат: `/etc/ssl/certs/devops.crt` (root:root, 644); ключ: `/etc/ssl/private/devops.key` (root:root, 600).
+  Срок действия 365 дней. Команда формирования:
+
+```bash
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout /etc/ssl/private/devops.key -out /etc/ssl/certs/devops.crt \
+  -subj "/CN=devops.local" -addext "subjectAltName=DNS:devops.local"
+```
+
+- Хост: копия сертификата для проверки — `scp devops:/etc/ssl/certs/devops.crt ~/devops.crt`;
+  проверка — `curl --cacert ~/devops.crt -I https://devops.local`.
+- Снимок состояния: `04-nginx-https`.
