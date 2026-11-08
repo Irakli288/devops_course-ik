@@ -41,5 +41,14 @@ check "Сертификат действует ещё ${CERT_DAYS}+ дней" "0
 check "Нет файлов o+w в ресурсе, права ключа 600" "0 600" \
   "$(find /var/www/devops-site -perm -o+w | wc -l) $(sudo stat -c '%a' /etc/ssl/private/devops.key)"
 
+echo "[5] Контейнеризация"
+check "Служба docker активна" "active" "$(systemctl is-active docker)"
+check "СУБД в состоянии healthy" "healthy" \
+  "$(docker inspect -f '{{.State.Health.Status}}' app-db-1 2>/dev/null)"
+# порты 5000 и 5432 допускаются только на 127.0.0.1
+BAD_PORTS="$(ss -tln | awk '$4 ~ /:(5000|5432)$/ && $4 !~ /^127\.0\.0\.1:/ {print $4}' | sort -u | paste -sd, -)"
+check "Порты 5000 и 5432 только на 127.0.0.1" "" "$BAD_PORTS"
+check "Права ~/app/.env равны 600" "600" "$(stat -c '%a' ~/app/.env 2>/dev/null)"
+
 echo "Пройдено: $PASS, не пройдено: $FAIL"
 [[ $FAIL -eq 0 ]] && exit 0 || exit 1
