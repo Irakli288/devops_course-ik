@@ -1,0 +1,6 @@
+---
+app_image: "ghcr.io/irakli288/devops-ci-app"
+app_tag: "e4750757b23524a7abb8b3947acb9567aff9314e"
+app_container_name: "devops-ci-app"
+app_host_port: 5000
+app_internal_port: 5000
