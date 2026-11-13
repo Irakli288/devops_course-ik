@@ -1,6 +1,8 @@
 server {
     listen 80 default_server;
+{% if ansible_all_ipv6_addresses | length > 0 %}
     listen [::]:80 default_server;
+{% endif %}
     server_name _;
 
     location / {

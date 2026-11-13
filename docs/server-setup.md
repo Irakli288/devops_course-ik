@@ -248,3 +248,43 @@ location /app/ {
 
   Проверка: `curl --cacert ~/devops.crt https://devops.local/app/`.
 - Снимок состояния: `05-docker-compose` (на стенде `docker commit` не включает тома Docker).
+
+## 10. Ansible
+
+- Расположение проекта: каталог `ansible/` репозитория `devops_course-ik`
+  (ветка `feature/ansible`, после слияния — `main`). Запуск всех команд — из каталога `ansible/`,
+  чтобы применился `ansible.cfg` (inventory по умолчанию `inventory/prod.ini`, `host_key_checking = True`,
+  `force_handlers = True`).
+- Управляющий узел: учебная машина `host-pc` (Ubuntu, ansible-core, коллекции из `requirements.yml`:
+  `ansible.posix`, `community.docker`, `community.general`). Управляемый узел: `devops-vm`, 192.168.56.101.
+- Inventory:
+  - `inventory/bootstrap.ini` — первичный запуск под `student` по паролю (`--ask-pass --ask-become-pass`);
+  - `inventory/prod.ini` — все последующие запуски под `devops` по ключу `~/.ssh/devops_vm`, sudo без пароля.
+- Учётные записи: `student` нужен только для bootstrap; после него вход по паролю отключён.
+  `devops` — рабочая учётная запись с ключом и правилом `/etc/sudoers.d/devops`.
+  `PermitRootLogin no`, `PasswordAuthentication no`.
+- Роли:
+  - `base` — проверка платформы, базовые пакеты и зависимости модулей, Docker Engine из официального репозитория;
+  - `ssh` — пользователь `devops`, ключ, `/etc/sudoers.d/devops`, drop-in
+    `/etc/ssh/sshd_config.d/00-ansible-hardening.conf` с проверкой `sshd -t` и handler `Restart SSH`, ufw (22, 80);
+  - `nginx` — шаблон `devops-ci-app.conf` (proxy на `127.0.0.1:5000`), проверка `nginx -t`, handler `Reload Nginx`;
+  - `app` — загрузка образа, запуск контейнера, ожидание `/health`.
+- Образ: `ghcr.io/irakli288/devops-ci-app`, тег — полный SHA проверенного коммита
+  `e4750757b23524a7abb8b3947acb9567aff9314e` (переменная `app_tag` в `group_vars/all.yml`).
+- Контейнер `devops-ci-app`, публикация `127.0.0.1:5000 -> 5000` (наружу порт 5000 закрыт),
+  внешний доступ только через Nginx на 80. Health endpoint: `http://192.168.56.101/health` → `{"status":"ok"}`.
+- Команды:
+
+```bash
+ansible-galaxy collection install -r requirements.yml
+# первичный запуск (чистая VM)
+ansible-playbook -i inventory/bootstrap.ini site.yml --ask-pass --ask-become-pass
+# повторные запуски (ожидается changed=0 при отсутствии drift)
+ansible-playbook site.yml
+# read-only аудит (ничего не меняет)
+ansible-playbook verify.yml
+```
+
+- Ограничение стенда: в ядре VM нет IPv6, поэтому `listen [::]:80` добавляется в шаблон
+  только при наличии IPv6-адресов (`ansible_all_ipv6_addresses`).
+- Пароли и закрытый ключ в репозиторий и документацию не включаются.
